@@ -1,7 +1,7 @@
 name: Build web/android/windows apps
 on:
   push:
-    branches: ["master"]
+    branches: [ "master" ]
 
 jobs:
   build_windows_app:
@@ -9,6 +9,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20'  # Ensures Node.js 20 is used
       - uses: subosito/flutter-action@v2
         with:
           channel: 'master'
@@ -16,18 +19,17 @@ jobs:
       - run: flutter pub get
       - run: flutter config --enable-windows-desktop
       - run: flutter build windows --release
-      - name: Create Release Directory
-        run: mkdir -p build/windows/runner/Release/result
       - name: Archive Release
         uses: thedoctor0/zip-release@master
         with:
           type: 'zip'
           filename: '${{github.event.repository.name}}-windows.zip'
           directory: build/windows/runner/Release
+      - run: mkdir build/windows/runner/Release/result
       - run: move build/windows/runner/Release/${{github.event.repository.name}}-windows.zip build/windows/runner/Release/result
       - run: git config user.name github-actions
       - run: git config user.email github-actions@github.com
-      - run: git --work-tree build/windows/runner/Release/result add --all
+      - run: git --work-tree build/windows/runner/Release/result add --all -f
       - run: git commit -m "Automatic deployment by github-actions"
       - run: git push origin HEAD:buildWin --force
 
@@ -37,6 +39,31 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20'  # Ensures Node.js 20 is used
       - uses: actions/setup-java@v3
         with:
-          distribution: 'tem
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'master'
+      - run: rm -f pubspec.lock
+      - run: flutter pub get
+      - run: flutter config --enable-web --enable-android
+      - run: git config user.name github-actions
+      - run: git config user.email github-actions@github.com
+
+      - run: flutter build web --base-href "/${{ github.event.repository.name }}/"
+      - run: git --work-tree build/web add --all -f
+      - run: git commit -m "Automatic deployment by github-actions"
+      - run: git push origin HEAD:gh-pages --force
+
+      - run: flutter build apk --release
+      - run: mkdir build/app/outputs/flutter-apk/result
+      - run: mv build/app/outputs/flutter-apk/app-*.apk build/app/outputs/flutter-apk/result/${{github.event.repository.name}}.apk
+      - run: git --work-tree build/app/outputs/flutter-apk/result add --all -f
+      - run: git commit -m "Automatic deployment by github-actions"
+      - run: git push origin HEAD:buildAPK --force
